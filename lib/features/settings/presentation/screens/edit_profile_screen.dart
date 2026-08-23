@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_calendar_sheet.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 
 /// Edit Profile screen reproduced from the Figma "Edit Profile" design
@@ -29,11 +30,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     super.initState();
     final profile = ref.read(profileProvider).value;
     _nameController = TextEditingController(
-        text: profile?.fullName ?? 'Abdullah Mubashir');
+      text: profile?.fullName ?? 'Abdullah Mubashir',
+    );
     _emailController = TextEditingController(
-        text: profile?.email ?? 'abdullah.m@teachdesk.edu');
+      text: profile?.email ?? 'abdullah.m@teachdesk.edu',
+    );
     _phoneController = TextEditingController(
-        text: profile?.phone ?? '+1 (555) 019-2834');
+      text: profile?.phone ?? '+1 (555) 019-2834',
+    );
     _dob = profile?.dateJoined ?? DateTime(1998, 10, 14);
   }
 
@@ -46,12 +50,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   Future<void> _pickDob() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _dob,
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-    );
+    final picked = await showCalendarSheet(context, initialDate: _dob);
     if (picked != null) setState(() => _dob = picked);
   }
 
@@ -150,19 +149,24 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   const SizedBox(height: 16),
                   _pillLabel('Email Address'),
                   const SizedBox(height: 8),
-                  _inputPill(_emailController,
-                      keyboardType: TextInputType.emailAddress),
+                  _inputPill(
+                    _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 16),
                   _pillLabel('Phone Number'),
                   const SizedBox(height: 8),
-                  _inputPill(_phoneController,
-                      keyboardType: TextInputType.phone),
+                  _inputPill(
+                    _phoneController,
+                    keyboardType: TextInputType.phone,
+                  ),
                   const SizedBox(height: 16),
                   _pillLabel('Date of Birth'),
                   const SizedBox(height: 8),
                   _tapPill(
                     value: 'October ${_dob.day}, ${_dob.year}',
                     onTap: _pickDob,
+                    showCalendarIcon: true,
                   ),
                   const SizedBox(height: 16),
                   _pillLabel('Gender'),
@@ -190,8 +194,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                        AppTheme.primary.withValues(alpha: 0.5),
+                    disabledBackgroundColor: AppTheme.primary.withValues(
+                      alpha: 0.5,
+                    ),
                     shape: const StadiumBorder(),
                   ),
                   child: _saving
@@ -241,8 +246,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   ),
                 ),
                 trailing: g == _gender
-                    ? const Icon(Icons.check_rounded,
-                        color: Color(0xFF2249DC))
+                    ? const Icon(Icons.check_rounded, color: Color(0xFF2249DC))
                     : null,
                 onTap: () => Navigator.of(sheetContext).pop(g),
               ),
@@ -291,8 +295,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: const BorderRadius.all(Radius.circular(100)),
-            borderSide:
-                BorderSide(color: AppTheme.primary.withValues(alpha: 0.7)),
+            borderSide: BorderSide(
+              color: AppTheme.primary.withValues(alpha: 0.7),
+            ),
           ),
         ),
       ),
@@ -303,6 +308,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     required String value,
     required VoidCallback onTap,
     bool showChevron = false,
+    bool showCalendarIcon = false,
   }) {
     return InkWell(
       onTap: onTap,
@@ -327,9 +333,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 ),
               ),
             ),
+            if (showCalendarIcon)
+              const Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Icon(
+                  Icons.calendar_today_rounded,
+                  size: 16,
+                  color: Color(0xFF737373),
+                ),
+              ),
             if (showChevron)
-              const Icon(Icons.keyboard_arrow_down_rounded,
-                  size: 18, color: Color(0xFF737373)),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: Color(0xFF737373),
+              ),
           ],
         ),
       ),

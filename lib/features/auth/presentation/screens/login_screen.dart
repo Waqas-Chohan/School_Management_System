@@ -18,8 +18,16 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  late final TextEditingController _emailController;
+  late final TextEditingController _passwordController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Prefill the demo credentials so the login screen is instantly usable.
+    _emailController = TextEditingController(text: 'waqaschohan@gmail.com');
+    _passwordController = TextEditingController(text: 'password');
+  }
 
   @override
   void dispose() {
@@ -51,18 +59,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final submitting =
-        ref.watch(loginControllerProvider.select((s) => s.isLoading));
+    final submitting = ref.watch(
+      loginControllerProvider.select((s) => s.isLoading),
+    );
 
     return Scaffold(
       body: Stack(
         fit: StackFit.expand,
         children: [
           // Full-bleed background image from the Figma frame.
-          Image.asset(
-            'assets/images/login_background.png',
-            fit: BoxFit.cover,
-          ),
+          Image.asset('assets/images/login_background.png', fit: BoxFit.cover),
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {

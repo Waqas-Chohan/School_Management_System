@@ -10,7 +10,8 @@ void main() {
         'month_label': 'August 2026',
         'percent': 92,
         'headline': 'Excellent Consistency!',
-        'subtitle': 'You have maintained the target attendance rate of over 90%.',
+        'subtitle':
+            'You have maintained the target attendance rate of over 90%.',
         'stats': [
           {'type': 'present', 'label': 'Present', 'count': 24},
           {'type': 'absent', 'label': 'Absent', 'count': 2},

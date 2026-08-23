@@ -5,7 +5,9 @@ import 'core/theme/app_theme.dart';
 import 'core/widgets/main_navigation_shell.dart';
 import 'features/auth/presentation/screens/auth_gate_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
+import 'features/attendance/presentation/screens/attendance_details_screen.dart';
 import 'features/attendance/presentation/screens/class_screen.dart';
+import 'features/attendance/presentation/screens/mark_attendance_screen.dart';
 import 'features/attendance/presentation/screens/teacher_attendance_screen.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'features/exams/presentation/screens/exams_screen.dart';
@@ -15,7 +17,7 @@ import 'features/features/presentation/screens/feature_detail_screen.dart';
 import 'features/features/presentation/screens/feature_screen.dart';
 import 'features/leave/presentation/screens/create_leave_screen.dart';
 import 'features/leave/presentation/screens/leave_screen.dart';
-import 'features/profile/presentation/screens/profile_screen.dart';
+import 'features/profile/presentation/screens/profile_view_screen.dart';
 import 'features/settings/presentation/screens/about_app_screen.dart';
 import 'features/settings/presentation/screens/change_password_screen.dart';
 import 'features/settings/presentation/screens/edit_profile_screen.dart';
@@ -28,14 +30,8 @@ class App extends StatelessWidget {
   static final GoRouter _router = GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const AuthGateScreen(),
-      ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const AuthGateScreen()),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainNavigationShell(navigationShell: navigationShell);
@@ -89,8 +85,20 @@ class App extends StatelessWidget {
       ),
       // Top-level detail routes (outside shell)
       GoRoute(
+        path: '/class/attendance/:classId',
+        builder: (context, state) => MarkAttendanceScreen(
+          classId: state.pathParameters['classId'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/class/details/:classId',
+        builder: (context, state) => AttendanceDetailsScreen(
+          classId: state.pathParameters['classId'] ?? '',
+        ),
+      ),
+      GoRoute(
         path: '/profile-view',
-        builder: (context, state) => const ProfileScreen(),
+        builder: (context, state) => const ProfileViewScreen(),
       ),
       GoRoute(
         path: '/settings',
@@ -123,7 +131,9 @@ class App extends StatelessWidget {
       GoRoute(
         path: '/features/detail',
         builder: (context, state) {
-          final feature = state.extra is Feature ? state.extra! as Feature : null;
+          final feature = state.extra is Feature
+              ? state.extra! as Feature
+              : null;
           if (feature == null) return const FeatureScreen();
           return FeatureDetailScreen(feature: feature);
         },

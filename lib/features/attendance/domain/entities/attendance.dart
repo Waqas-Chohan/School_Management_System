@@ -19,16 +19,20 @@ class AttendanceLogEntry {
   final AttendanceDayStatus status;
 
   String get statusLabel => switch (status) {
-        AttendanceDayStatus.present => 'Present',
-        AttendanceDayStatus.absent => 'Absent',
-        AttendanceDayStatus.leave => 'Leave',
-        AttendanceDayStatus.late => 'Late In',
-      };
+    AttendanceDayStatus.present => 'Present',
+    AttendanceDayStatus.absent => 'Absent',
+    AttendanceDayStatus.leave => 'Leave',
+    AttendanceDayStatus.late => 'Late In',
+  };
 }
 
 /// A stat counter shown in the summary row.
 class AttendanceStat {
-  const AttendanceStat({required this.type, required this.label, required this.count});
+  const AttendanceStat({
+    required this.type,
+    required this.label,
+    required this.count,
+  });
 
   final AttendanceStatType type;
   final String label;

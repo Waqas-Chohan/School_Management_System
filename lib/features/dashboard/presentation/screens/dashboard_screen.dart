@@ -25,7 +25,9 @@ class DashboardScreen extends ConsumerWidget {
             child: CircularProgressIndicator(color: Color(0xFF2249DC)),
           ),
           error: (error, _) => _DashboardErrorView(
-            message: error is AppFailure ? error.message : 'Unable to load dashboard.',
+            message: error is AppFailure
+                ? error.message
+                : 'Unable to load dashboard.',
             onRetry: () => ref.invalidate(dashboardSummaryProvider),
           ),
           data: (data) => RefreshIndicator(
@@ -189,10 +191,11 @@ class _QuickActionCard extends StatelessWidget {
     QuickActionType.applyLeave: Color(0xFFE3F7FE),
     QuickActionType.viewDatesheet: Color(0xFFFFE0F7),
   };
-static const Map<QuickActionType, IconData> _icons = {
-    QuickActionType.myAttendance: Icons.eco_rounded,
-    QuickActionType.applyLeave: Icons.calendar_month_rounded,
-    QuickActionType.viewDatesheet: Icons.assignment_rounded,
+  // Icon art comes from the downloaded PNG assets (assets/images/...).
+  static const Map<QuickActionType, String> _iconAssets = {
+    QuickActionType.myAttendance: 'assets/images/myattendance.png',
+    QuickActionType.applyLeave: 'assets/images/applyforleave.png',
+    QuickActionType.viewDatesheet: 'assets/images/viewdatesheet.png',
   };
 
   @override
@@ -201,8 +204,8 @@ static const Map<QuickActionType, IconData> _icons = {
     final iconColor = background == const Color(0xFFF5FFE6)
         ? const Color(0xFF93BA59)
         : background == const Color(0xFFE3F7FE)
-            ? const Color(0xFF53AAC9)
-            : const Color(0xFFC37BB0);
+        ? const Color(0xFF53AAC9)
+        : const Color(0xFFC37BB0);
 
     return Container(
       height: 106,
@@ -222,8 +225,15 @@ static const Map<QuickActionType, IconData> _icons = {
                 Container(
                   width: 28,
                   height: 28,
-                  alignment: Alignment.center,
-                  child: Icon(_icons[action.type], size: 26, color: iconColor),
+                  decoration: BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage(
+                        _iconAssets[action.type] ??
+                            'assets/images/myattendance.png',
+                      ),
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
                 Icon(Icons.arrow_outward, size: 16, color: iconColor),
               ],
@@ -291,15 +301,13 @@ class _TimetableSection extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           for (var i = 0; i < periods.length; i++)
-            _TimetableRow(
-              period: periods[i],
-              isLast: i == periods.length - 1,
-            ),
+            _TimetableRow(period: periods[i], isLast: i == periods.length - 1),
         ],
       ),
     );
   }
 }
+
 class _TimetableRow extends StatelessWidget {
   const _TimetableRow({required this.period, required this.isLast});
 
@@ -436,8 +444,12 @@ class _RoleBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSubjectTeacher = role == TimetableRole.subjectTeacher;
-    final background = isSubjectTeacher ? const Color(0xFFFFF8E3) : const Color(0xFFDCFCE7);
-    final foreground = isSubjectTeacher ? const Color(0xFF987200) : const Color(0xFF15803D);
+    final background = isSubjectTeacher
+        ? const Color(0xFFFFF8E3)
+        : const Color(0xFFDCFCE7);
+    final foreground = isSubjectTeacher
+        ? const Color(0xFF987200)
+        : const Color(0xFF15803D);
     final label = isSubjectTeacher ? 'Subject Teacher' : 'Class Incharge';
 
     return Container(
@@ -576,7 +588,9 @@ class _MarkedPill extends StatelessWidget {
     final background = isMarked
         ? const Color(0xFFDDEBFD)
         : const Color(0xFFC24040).withValues(alpha: 0.12);
-    final foreground = isMarked ? const Color(0xFF1D4EDF) : const Color(0xFFC24040);
+    final foreground = isMarked
+        ? const Color(0xFF1D4EDF)
+        : const Color(0xFFC24040);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -590,7 +604,10 @@ class _MarkedPill extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(color: foreground, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: foreground,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 4),
           Text(
@@ -665,19 +682,19 @@ class _UpcomingRow extends StatelessWidget {
   final UpcomingEvent event;
 
   (IconData, Color) get _icon => switch (event.kind) {
-        UpcomingEventKind.holiday => (
-            Icons.celebration_outlined,
-            const Color(0xFF93BA59),
-          ),
-        UpcomingEventKind.meeting => (
-            Icons.groups_rounded,
-            const Color(0xFF53AAC9),
-          ),
-        UpcomingEventKind.leave => (
-            Icons.event_busy_outlined,
-            const Color(0xFFC37BB0),
-          ),
-      };
+    UpcomingEventKind.holiday => (
+      Icons.celebration_outlined,
+      const Color(0xFF93BA59),
+    ),
+    UpcomingEventKind.meeting => (
+      Icons.groups_rounded,
+      const Color(0xFF53AAC9),
+    ),
+    UpcomingEventKind.leave => (
+      Icons.event_busy_outlined,
+      const Color(0xFFC37BB0),
+    ),
+  };
 
   @override
   Widget build(BuildContext context) {

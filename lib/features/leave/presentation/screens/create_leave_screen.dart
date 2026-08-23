@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_calendar_sheet.dart';
 import '../../domain/entities/leave.dart';
 import '../providers/leave_providers.dart';
 
@@ -35,7 +36,8 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
     super.dispose();
   }
 
-  DateTime? get _effectiveStart => _mode == LeaveMode.single ? _date : _fromDate;
+  DateTime? get _effectiveStart =>
+      _mode == LeaveMode.single ? _date : _fromDate;
   DateTime? get _effectiveEnd => _mode == LeaveMode.single ? _date : _toDate;
 
   int? get _calculatedDays {
@@ -50,11 +52,12 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
       '${d.day.toString().padLeft(2, '0')}';
 
   Future<void> _pickDate({bool isFrom = true}) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2035),
+    final current = _mode == LeaveMode.single
+        ? _date
+        : (isFrom ? _fromDate : _toDate);
+    final picked = await showCalendarSheet(
+      context,
+      initialDate: current ?? DateTime.now(),
     );
     if (picked == null) return;
     setState(() {
@@ -80,7 +83,9 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_type == null || _effectiveStart == null || _effectiveEnd == null) return;
+    if (_type == null || _effectiveStart == null || _effectiveEnd == null) {
+      return;
+    }
 
     final controller = ref.read(createLeaveControllerProvider.notifier);
     final ok = await controller.submit(
@@ -99,7 +104,9 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
       );
       context.pop();
     } else {
-      final error = ref.read(createLeaveControllerProvider.notifier).errorOrNull;
+      final error = ref
+          .read(createLeaveControllerProvider.notifier)
+          .errorOrNull;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(error?.message ?? 'Unable to submit leave request.'),
@@ -118,11 +125,13 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
       ),
     );
   }
-@override
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
+        centerTitle: true,
         leading: IconButton(
           onPressed: () => context.pop(),
           icon: const Icon(Icons.chevron_left_rounded),
@@ -184,8 +193,9 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
                 Expanded(
                   child: _buildColumnPair(
                     label: 'From Date',
-                    value:
-                        _fromDate == null ? 'mm/dd/yyyy' : _format(_fromDate!),
+                    value: _fromDate == null
+                        ? 'mm/dd/yyyy'
+                        : _format(_fromDate!),
                     onTap: () => _pickDate(isFrom: true),
                   ),
                 ),
@@ -246,8 +256,9 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: const BorderRadius.all(Radius.circular(12)),
-                borderSide:
-                    BorderSide(color: AppTheme.primary.withValues(alpha: 0.7)),
+                borderSide: BorderSide(
+                  color: AppTheme.primary.withValues(alpha: 0.7),
+                ),
               ),
               alignLabelWithHint: true,
             ),
@@ -282,8 +293,9 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
   }
 
   Widget _bottomBar(BuildContext context) {
-    final submitting =
-        ref.watch(createLeaveControllerProvider.select((s) => s.isLoading));
+    final submitting = ref.watch(
+      createLeaveControllerProvider.select((s) => s.isLoading),
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -321,8 +333,11 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Icon(Icons.arrow_outward_rounded,
-                        size: 18, color: Colors.white),
+                    const Icon(
+                      Icons.arrow_outward_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    ),
                   ],
                 ),
         ),
@@ -331,65 +346,144 @@ class _CreateLeaveScreenState extends ConsumerState<CreateLeaveScreen> {
   }
 }
 // ─── Leave Type dropdown (Figma "Full name" 76:6266) ──────────────────────
+//
+// A professional inline dropdown: tapping the field expands the option list
+// directly *below* it (so it never covers the field) at exactly the field's
+// width, and the selected option is highlighted with a check mark.
 
-class _LeaveTypeDropdown extends StatelessWidget {
+class _LeaveTypeDropdown extends StatefulWidget {
   const _LeaveTypeDropdown({required this.value, required this.onChanged});
 
   final LeaveType? value;
   final ValueChanged<LeaveType?> onChanged;
 
   @override
+  State<_LeaveTypeDropdown> createState() => _LeaveTypeDropdownState();
+}
+
+class _LeaveTypeDropdownState extends State<_LeaveTypeDropdown> {
+  bool _open = false;
+
+  static String _label(LeaveType t) => switch (t) {
+    LeaveType.casual => 'Casual Leave',
+    LeaveType.sick => 'Sick Leave',
+    LeaveType.annual => 'Annual Leave',
+    LeaveType.family => 'Family Function',
+    LeaveType.other => 'Other',
+  };
+
+  void _toggle() => setState(() => _open = !_open);
+
+  void _select(LeaveType t) {
+    widget.onChanged(t);
+    setState(() => _open = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 45,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(100),
-        border: Border.all(color: const Color(0xFFD9D9D9)),
-      ),
-      child: DropdownButtonFormField<LeaveType>(
-        initialValue: value,
-        isExpanded: true,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: const Color(0xFF161616),
-        ),
-        hint: Text(
-          'Select Type',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF737373),
-          ),
-        ),
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-        items: LeaveType.values
-            .map(
-              (t) => DropdownMenuItem<LeaveType>(
-                value: t,
-                child: Text(
-                  switch (t) {
-                    LeaveType.casual => 'Casual Leave',
-                    LeaveType.sick => 'Sick Leave',
-                    LeaveType.annual => 'Annual Leave',
-                    LeaveType.family => 'Family Function',
-                    LeaveType.other => 'Other',
-                  },
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF161616),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Select field
+        InkWell(
+          onTap: _toggle,
+          borderRadius: BorderRadius.circular(100),
+          child: Container(
+            height: 45,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(100),
+              border: Border.all(color: const Color(0xFFD9D9D9)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.value == null
+                        ? 'Select Type'
+                        : _label(widget.value!),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: widget.value == null
+                          ? const Color(0xFF737373)
+                          : const Color(0xFF161616),
+                    ),
                   ),
                 ),
-              ),
-            )
-            .toList(),
-        onChanged: onChanged,
-      ),
+                const SizedBox(width: 8),
+                Icon(
+                  _open
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: const Color(0xFF737373),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Inline option list rendered directly below the field.
+        if (_open) ...[
+          const SizedBox(height: 6),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFD9D9D9)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0x14000000),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                for (final t in LeaveType.values)
+                  InkWell(
+                    onTap: () => _select(t),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _label(t),
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: t == widget.value
+                                    ? FontWeight.w600
+                                    : FontWeight.w400,
+                                color: const Color(0xFF161616),
+                              ),
+                            ),
+                          ),
+                          if (t == widget.value)
+                            const Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: AppTheme.primary,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -423,8 +517,9 @@ class _LeaveModeSelector extends StatelessWidget {
             style: GoogleFonts.inter(
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color:
-                  selected ? const Color(0xFF181818) : const Color(0xFF606060),
+              color: selected
+                  ? const Color(0xFF181818)
+                  : const Color(0xFF606060),
             ),
           ),
         ],
@@ -478,8 +573,11 @@ class _DateField extends StatelessWidget {
                 ),
               ),
             ),
-            const Icon(Icons.calendar_today_rounded,
-                size: 16, color: Color(0xFF737373)),
+            const Icon(
+              Icons.calendar_today_rounded,
+              size: 16,
+              color: Color(0xFF737373),
+            ),
           ],
         ),
       ),
@@ -520,8 +618,11 @@ class _AttachFilesTile extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.attach_file_rounded,
-                        size: 18, color: Color(0xFF737373)),
+                    const Icon(
+                      Icons.attach_file_rounded,
+                      size: 18,
+                      color: Color(0xFF737373),
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -537,8 +638,11 @@ class _AttachFilesTile extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: () => onRemove(i),
-                      icon: const Icon(Icons.close_rounded,
-                          size: 16, color: Color(0xFF737373)),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Color(0xFF737373),
+                      ),
                     ),
                   ],
                 ),
@@ -546,8 +650,7 @@ class _AttachFilesTile extends StatelessWidget {
           GestureDetector(
             onTap: onUpload,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF0F0F0),
                 borderRadius: BorderRadius.circular(100),

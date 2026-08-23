@@ -88,54 +88,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                   children: [
-              profileAsync.maybeWhen(
-                data: (profile) => _UserProfileCard(
-                  name: profile.fullName,
-                  subtitle: 'ID: ${profile.id}  •  ${profile.role}',
-                  onTap: () => context.push('/profile-view'),
-                ),
-                orElse: () => const _UserProfileCard(
-                  name: 'Abdullah Mubashir',
-                  subtitle: 'ID: M2024001  •  Mathematics',
-                  onTap: null,
-                ),
-              ),
-              _sectionLabel('Features'),
-              _SettingsRow(
-                label: 'Edit Profile',
-                icon: Icons.person_outline_rounded,
-                circleColor: const Color(0xFFDCE3FB),
-                iconColor: const Color(0xFF2249DC),
-                onTap: () => context.push('/settings/edit-profile'),
-              ),
-              _SettingsRow(
-                label: 'Attendance',
-                icon: Icons.assignment_outlined,
-                circleColor: const Color(0xFFFFF1D9),
-                iconColor: const Color(0xFFBF7900),
-                onTap: () => context.push('/settings/attendance'),
-              ),
-              _SettingsRow(
-                label: 'Change Password',
-                icon: Icons.lock_outline_rounded,
-                circleColor: const Color(0xFFD9F3FF),
-                iconColor: const Color(0xFF0074A9),
-                onTap: () => context.push('/settings/change-password'),
-              ),
-              _sectionLabel('Notifications'),
-              _NotificationRow(
-                enabled: _pushEnabled,
-                onChanged: (v) => setState(() => _pushEnabled = v),
-              ),
-              _sectionLabel('Legal'),
-              _SettingsRow(
-                label: 'About App',
-                icon: Icons.info_outline_rounded,
-                circleColor: const Color(0xFFF0FFDE),
-                iconColor: const Color(0xFF569D00),
-                onTap: () => context.push('/settings/about'),
-              ),
-            ],
+                    profileAsync.maybeWhen(
+                      data: (profile) => _UserProfileCard(
+                        name: profile.fullName,
+                        subtitle: 'ID: ${profile.id}  •  ${profile.role}',
+                        onTap: () => context.push('/profile-view'),
+                      ),
+                      orElse: () => const _UserProfileCard(
+                        name: 'Abdullah Mubashir',
+                        subtitle: 'ID: M2024001  •  Mathematics',
+                        onTap: null,
+                      ),
+                    ),
+                    _sectionLabel('Features'),
+                    _SettingsRow(
+                      label: 'Edit Profile',
+                      icon: Icons.person_outline_rounded,
+                      circleColor: const Color(0xFFDCE3FB),
+                      iconColor: const Color(0xFF2249DC),
+                      onTap: () => context.push('/settings/edit-profile'),
+                    ),
+                    _SettingsRow(
+                      label: 'Attendance',
+                      icon: Icons.assignment_outlined,
+                      circleColor: const Color(0xFFFFF1D9),
+                      iconColor: const Color(0xFFBF7900),
+                      onTap: () => context.push('/settings/attendance'),
+                    ),
+                    _SettingsRow(
+                      label: 'Change Password',
+                      icon: Icons.lock_outline_rounded,
+                      circleColor: const Color(0xFFD9F3FF),
+                      iconColor: const Color(0xFF0074A9),
+                      onTap: () => context.push('/settings/change-password'),
+                    ),
+                    _sectionLabel('Notifications'),
+                    _NotificationRow(
+                      enabled: _pushEnabled,
+                      onChanged: (v) => setState(() => _pushEnabled = v),
+                    ),
+                    _sectionLabel('Legal'),
+                    _SettingsRow(
+                      label: 'About App',
+                      icon: Icons.info_outline_rounded,
+                      circleColor: const Color(0xFFF0FFDE),
+                      iconColor: const Color(0xFF569D00),
+                      onTap: () => context.push('/settings/about'),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -261,10 +261,7 @@ class _UserProfileCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFFC2C2C2),
-              ),
+              const Icon(Icons.chevron_right_rounded, color: Color(0xFFC2C2C2)),
             ],
           ),
         ),
@@ -409,11 +406,8 @@ class _PushToggle extends StatelessWidget {
         height: 24.2,
         padding: const EdgeInsets.all(2.4),
         decoration: BoxDecoration(
-          color: enabled ? const Color(0xFF2249DC) : Colors.white,
+          color: enabled ? const Color(0xFF2249DC) : const Color(0xFFD9D9D9),
           borderRadius: BorderRadius.circular(14.4),
-          border: enabled
-              ? null
-              : Border.all(color: const Color(0xFFD9D9D9), width: 1.2),
         ),
         child: AnimatedAlign(
           duration: const Duration(milliseconds: 180),

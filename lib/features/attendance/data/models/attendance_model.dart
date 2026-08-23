@@ -18,10 +18,17 @@ class AttendanceSummaryModel extends AttendanceSummary {
       headline: json['headline']?.toString() ?? '',
       subtitle: json['subtitle']?.toString() ?? '',
       stats: (json['stats'] as List? ?? const <dynamic>[])
-          .map((e) => AttendanceStatModel.fromJson((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) => AttendanceStatModel.fromJson(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList(),
       history: (json['history'] as List? ?? const <dynamic>[])
-          .map((e) => AttendanceLogModel.fromJson((e as Map).cast<String, dynamic>()))
+          .map(
+            (e) =>
+                AttendanceLogModel.fromJson((e as Map).cast<String, dynamic>()),
+          )
           .toList(),
     );
   }
@@ -33,15 +40,23 @@ class AttendanceSummaryModel extends AttendanceSummary {
       headline: entity.headline,
       subtitle: entity.subtitle,
       stats: entity.stats
-          .map((s) => AttendanceStatModel(type: s.type, label: s.label, count: s.count))
+          .map(
+            (s) => AttendanceStatModel(
+              type: s.type,
+              label: s.label,
+              count: s.count,
+            ),
+          )
           .toList(),
       history: entity.history
-          .map((h) => AttendanceLogModel(
-                date: h.date,
-                inTime: h.inTime,
-                outTime: h.outTime,
-                status: h.status,
-              ))
+          .map(
+            (h) => AttendanceLogModel(
+              date: h.date,
+              inTime: h.inTime,
+              outTime: h.outTime,
+              status: h.status,
+            ),
+          )
           .toList(),
     );
   }
@@ -56,12 +71,14 @@ class AttendanceSummaryModel extends AttendanceSummary {
           .map((s) => {'type': s.type.name, 'label': s.label, 'count': s.count})
           .toList(),
       'history': history
-          .map((h) => {
-                'date': h.date,
-                'in_time': h.inTime,
-                'out_time': h.outTime,
-                'status': h.status.name,
-              })
+          .map(
+            (h) => {
+              'date': h.date,
+              'in_time': h.inTime,
+              'out_time': h.outTime,
+              'status': h.status.name,
+            },
+          )
           .toList(),
     };
   }

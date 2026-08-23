@@ -17,7 +17,9 @@ final attendanceMockDataSourceProvider = Provider<AttendanceDataSource>((ref) {
   return AttendanceMockDataSourceImpl();
 });
 
-final attendanceRemoteDataSourceProvider = Provider<AttendanceDataSource>((ref) {
+final attendanceRemoteDataSourceProvider = Provider<AttendanceDataSource>((
+  ref,
+) {
   return AttendanceRemoteDataSourceImpl(dio: ref.watch(dioProvider));
 });
 
@@ -30,8 +32,10 @@ final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) {
 
 final getAttendanceSummaryUseCaseProvider =
     Provider<GetAttendanceSummaryUseCase>((ref) {
-  return GetAttendanceSummaryUseCase(ref.watch(attendanceRepositoryProvider));
-});
+      return GetAttendanceSummaryUseCase(
+        ref.watch(attendanceRepositoryProvider),
+      );
+    });
 
 String _readAccessToken(Ref ref) {
   return ref.read(authSessionProvider)?.accessToken ?? '';
@@ -39,11 +43,12 @@ String _readAccessToken(Ref ref) {
 
 // ── State ────────────────────────────────────────────
 
-final attendanceSummaryProvider =
-    FutureProvider.autoDispose<AttendanceSummary>((ref) async {
-  final accessToken = _readAccessToken(ref);
-  final result = await ref.read(getAttendanceSummaryUseCaseProvider)(
-    GetAttendanceSummaryParams(accessToken: accessToken),
-  );
-  return result.fold((summary) => summary, (failure) => throw failure);
-});
+final attendanceSummaryProvider = FutureProvider.autoDispose<AttendanceSummary>(
+  (ref) async {
+    final accessToken = _readAccessToken(ref);
+    final result = await ref.read(getAttendanceSummaryUseCaseProvider)(
+      GetAttendanceSummaryParams(accessToken: accessToken),
+    );
+    return result.fold((summary) => summary, (failure) => throw failure);
+  },
+);
