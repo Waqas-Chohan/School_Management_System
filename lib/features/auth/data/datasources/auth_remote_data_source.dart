@@ -29,9 +29,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     return guardApi(() async {
       final response = await dio.post<Map<String, dynamic>>(
         ApiEndpoints.login,
-        data: {'username': username, 'password': password},
+        // The portal expects the email in the `email` field.
+        data: {'email': username, 'password': password},
       );
-      final payload = (response.data ?? const <String, dynamic>{}).cast<String, dynamic>();
+      final payload = envelopeMap(response.data);
       return AuthSessionModel.fromJson(payload);
     });
   }

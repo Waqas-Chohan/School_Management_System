@@ -34,6 +34,39 @@ class ProfileMockDataSourceImpl implements ProfileDataSource {
     return const Success(null);
   }
 
+  @override
+  Future<Result<void>> updateProfile(
+    String accessToken,
+    ProfileUpdate update,
+  ) async {
+    await _mockLatency();
+    if (update.phone != null) _profile = _profile.copyWith(phone: update.phone);
+    if (update.name != null) _profile = _profile.copyWith(fullName: update.name!);
+    if (update.email != null) _profile = _profile.copyWith(email: update.email);
+    if (update.dob != null) _profile = _profile.copyWith(dob: update.dob);
+    if (update.avatar != null) _profile = _profile.copyWith(avatar: update.avatar);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<void>> updateNotifications(
+    String accessToken, {
+    required bool enabled,
+  }) async {
+    await _mockLatency();
+    _profile = _profile.copyWith(pushNotificationsEnabled: enabled);
+    return const Success(null);
+  }
+
+  @override
+  Future<Result<String>> uploadAvatar(
+    String accessToken, {
+    required String filePath,
+  }) async {
+    await _mockLatency();
+    return Success('image-mock-${DateTime.now().millisecondsSinceEpoch}.png');
+  }
+
   Future<void> _mockLatency() {
     return Future<void>.delayed(const Duration(milliseconds: 400));
   }

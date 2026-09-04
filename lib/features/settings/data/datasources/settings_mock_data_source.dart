@@ -35,4 +35,13 @@ class SettingsMockDataSourceImpl implements SettingsDataSource {
     await Future<void>.delayed(const Duration(milliseconds: 300));
     return List.unmodifiable(_items);
   }
+
+  @override
+  Future<void> changePassword(
+    String accessToken, {
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+  }
 }

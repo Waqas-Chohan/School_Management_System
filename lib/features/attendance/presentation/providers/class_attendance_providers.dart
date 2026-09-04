@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failures.dart';
+import '../../../../core/network/network_providers.dart';
 import '../../../../core/result/result.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/datasources/class_attendance_data_source.dart';
 import '../../data/datasources/class_attendance_mock_data_source.dart';
+import '../../data/datasources/class_attendance_remote_data_source.dart';
 import '../../data/repositories/class_attendance_repository_impl.dart';
 import '../../domain/entities/class_attendance.dart';
 import '../../domain/repositories/class_attendance_repository.dart';
@@ -21,15 +23,17 @@ final classAttendanceMockDataSourceProvider =
 
 final classAttendanceRemoteDataSourceProvider =
     Provider<ClassAttendanceDataSource>((ref) {
-      throw UnimplementedError('Class attendance remote API is not ready yet.');
+      return ClassAttendanceRemoteDataSourceImpl(dio: ref.watch(dioProvider));
     });
 
-// Swap to the remote source when the API is ready.
+// Remote-first: the repository falls back to the mock source when the live
+// API is unreachable.
 final classAttendanceRepositoryProvider = Provider<ClassAttendanceRepository>((
   ref,
 ) {
   return ClassAttendanceRepositoryImpl(
     ref.watch(classAttendanceMockDataSourceProvider),
+    ref.watch(classAttendanceRemoteDataSourceProvider),
   );
 });
 
@@ -88,6 +92,23 @@ final savedClassAttendanceProvider = FutureProvider.autoDispose
 
 // ── Submit controller ────────────────────────────────
 
+/// Class ids whose attendance was successfully submitted/updated during this
+/// app session. The class list merges this with the server's per-class
+/// `isMarkedToday` flag so the card flips to the purple "View" pill (and taps
+/// into the Attendance Details screen) immediately after a successful POST —
+/// without waiting on the dashboard's mark aggregation, which can lag.
+final submittedClassIdsProvider =
+    NotifierProvider<SubmittedClassIds, Set<String>>(SubmittedClassIds.new);
+
+class SubmittedClassIds extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const <String>{};
+
+  void markSubmitted(String classId) {
+    state = {...state, classId};
+  }
+}
+
 final submitClassAttendanceControllerProvider =
     NotifierProvider<SubmitClassAttendanceController, AsyncValue<void>>(
       SubmitClassAttendanceController.new,
@@ -116,6 +137,9 @@ class SubmitClassAttendanceController extends Notifier<AsyncValue<void>> {
     );
     state = result.fold((_) {
       ref.invalidate(teacherClassesProvider);
+      // The live POST succeeded — remember it so the class list immediately
+      // shows this class as already marked (View / Attendance Details).
+      ref.read(submittedClassIdsProvider.notifier).markSubmitted(classId);
       return const AsyncData(null);
     }, (failure) => AsyncError(failure, StackTrace.current));
     return state is AsyncData;

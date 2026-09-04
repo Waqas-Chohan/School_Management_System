@@ -1,10 +1,15 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_calendar_sheet.dart';
+import '../../../profile/domain/entities/teacher_profile.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 
 /// Edit Profile screen reproduced from the Figma "Edit Profile" design
@@ -24,6 +29,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late DateTime _dob;
   String _gender = 'Male';
   bool _saving = false;
+  bool _initializedFromProfile = false;
+
+  /// Whether the avatar uses a server path (relative) or a picked local file.
+  String? _avatarPath;
+  bool _avatarUploading = false;
 
   @override
   void initState() {
@@ -38,7 +48,63 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _phoneController = TextEditingController(
       text: profile?.phone ?? '+1 (555) 019-2834',
     );
-    _dob = profile?.dateJoined ?? DateTime(1998, 10, 14);
+    _dob = profile?.dob ?? profile?.dateJoined ?? DateTime(1998, 10, 14);
+    _avatarPath = profile?.avatar;
+    if (profile != null) {
+      _initializedFromProfile = true;
+      _gender = profile.gender.isNotEmpty ? profile.gender : 'Male';
+    }
+  }
+
+  /// Applies the live profile to the form the first time it becomes available
+  /// (covers the deep-link case where the profile is still loading when this
+  /// screen opens).
+  void _initializeFromProfile(TeacherProfile profile) {
+    setState(() {
+      _initializedFromProfile = true;
+      _gender = profile.gender.isNotEmpty ? profile.gender : _gender;
+      _nameController.text = profile.fullName.isNotEmpty
+          ? profile.fullName
+          : _nameController.text;
+      _emailController.text = profile.email.isNotEmpty
+          ? profile.email
+          : _emailController.text;
+      _phoneController.text = profile.phone.isNotEmpty
+          ? profile.phone
+          : _phoneController.text;
+      if (profile.dob != null) _dob = profile.dob!;
+      _avatarPath = profile.avatar;
+    });
+  }
+
+  Future<void> _pickAndUploadAvatar() async {
+    final picker = ImagePicker();
+    final file = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _avatarUploading = true);
+    // Preview the picked file immediately.
+    final avatar = await ref
+        .read(avatarUploadControllerProvider.notifier)
+        .uploadAndSet(file.path);
+    if (!mounted) return;
+    setState(() {
+      _avatarUploading = false;
+      if (avatar != null) _avatarPath = avatar;
+    });
+    if (avatar == null) {
+      final error = ref
+          .read(avatarUploadControllerProvider.notifier)
+          .errorOrNull;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error?.message ?? 'Unable to upload picture.')),
+      );
+    }
   }
 
   @override
@@ -54,20 +120,62 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (picked != null) setState(() => _dob = picked);
   }
 
+  String get _dobLabel {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[_dob.month - 1]} ${_dob.day}, ${_dob.year}';
+  }
+
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
+    final controller = ref.read(editProfileControllerProvider.notifier);
     setState(() => _saving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final ok = await controller.save(
+      name: _nameController.text.trim(),
+      email: _emailController.text.trim(),
+      dob: _dob,
+      phone: _phoneController.text.trim(),
+      qualification: null,
+      gender: _gender,
+    );
     if (!mounted) return;
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Profile updated successfully.')),
-    );
-    context.pop();
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully.')),
+      );
+      context.pop();
+    } else {
+      final error = controller.errorOrNull;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error?.message ?? 'Unable to update profile.')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Back-fill the form from the live profile if it arrives after this screen
+    // opened (e.g. direct navigation while the profile was still loading).
+    ref.listen(profileProvider, (prev, next) {
+      final profile = next.value;
+      if (profile != null && !_initializedFromProfile && mounted) {
+        _initializeFromProfile(profile);
+      }
+    });
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -96,40 +204,65 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   // Avatar + "Change Profile Picture" (Figma 65:5941)
                   Column(
                     children: [
-                      Stack(
-                        children: [
-                          Container(
-                            width: 80,
-                            height: 80,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              image: DecorationImage(
-                                image: AssetImage('assets/images/avatar.png'),
-                                fit: BoxFit.cover,
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF2249DC),
+                      GestureDetector(
+                        onTap: _pickAndUploadAvatar,
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                border: Border.fromBorderSide(
-                                  BorderSide(color: Colors.white, width: 2),
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.edit_rounded,
-                                size: 16,
-                                color: Colors.white,
+                                image: _avatarImage(),
                               ),
                             ),
-                          ),
-                        ],
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: _avatarUploading
+                                  ? Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF2249DC),
+                                        shape: BoxShape.circle,
+                                        border: Border.fromBorderSide(
+                                          BorderSide(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Padding(
+                                        padding: EdgeInsets.all(6),
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: const BoxDecoration(
+                                        color: Color(0xFF2249DC),
+                                        shape: BoxShape.circle,
+                                        border: Border.fromBorderSide(
+                                          BorderSide(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.edit_rounded,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                            ),
+                          ],
+                        ),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -164,7 +297,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                   _pillLabel('Date of Birth'),
                   const SizedBox(height: 8),
                   _tapPill(
-                    value: 'October ${_dob.day}, ${_dob.year}',
+                    value: _dobLabel,
                     onTap: _pickDob,
                     showCalendarIcon: true,
                   ),
@@ -255,6 +388,33 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       ),
     );
     if (picked != null) setState(() => _gender = picked);
+  }
+
+  /// Resolves the avatar to display: a picked local file, a server avatar URL
+  /// (which can be a relative `/uploads/...` path), or the bundled fallback.
+  DecorationImage? _avatarImage() {
+    final raw = _avatarPath;
+    if (raw == null || raw.isEmpty) {
+      return const DecorationImage(
+        image: AssetImage('assets/images/avatar.png'),
+        fit: BoxFit.cover,
+      );
+    }
+    if (raw.startsWith('/')) {
+      // Server-relative path -> resolve against the host of the API base.
+      final uri = Uri.parse(ApiEndpoints.baseUrl);
+      final host = '${uri.scheme}://${uri.host}$raw';
+      return DecorationImage(image: NetworkImage(host), fit: BoxFit.cover);
+    }
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return DecorationImage(image: NetworkImage(raw), fit: BoxFit.cover);
+    }
+    // Local file preview from the image picker.
+    final file = File(raw);
+    if (file.existsSync()) {
+      return DecorationImage(image: FileImage(file), fit: BoxFit.cover);
+    }
+    return null;
   }
 
   Widget _pillLabel(String text) {

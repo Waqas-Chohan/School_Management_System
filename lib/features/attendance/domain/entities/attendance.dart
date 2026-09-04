@@ -1,6 +1,28 @@
 /// The status of a single attendance day in the log.
 enum AttendanceDayStatus { present, absent, leave, late }
 
+/// Result payload returned after a self check-in / check-out action.
+class CheckInOutResult {
+  const CheckInOutResult({
+    required this.message,
+    required this.status,
+    this.checkIn,
+    this.checkOut,
+  });
+
+  /// Server message, e.g. "Checked in successfully at 18:01".
+  final String message;
+
+  /// Attendance status, e.g. "Present".
+  final String status;
+
+  /// "HH:MM" 24h time of the check-in (null until checked in).
+  final String? checkIn;
+
+  /// "HH:MM" 24h time of the check-out (null until checked out).
+  final String? checkOut;
+}
+
 /// Which stat badge is displayed in the summary row.
 enum AttendanceStatType { present, absent, leave, late }
 

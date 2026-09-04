@@ -25,8 +25,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     // Prefill the demo credentials so the login screen is instantly usable.
-    _emailController = TextEditingController(text: 'waqaschohan@gmail.com');
-    _passwordController = TextEditingController(text: 'password');
+    _emailController = TextEditingController(text: 'mariam.khan0@school.edu');
+    _passwordController = TextEditingController(text: 'teacher123');
   }
 
   @override

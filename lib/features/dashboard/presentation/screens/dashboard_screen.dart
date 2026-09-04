@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_dimensions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/widgets/avatar_resolver.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../domain/entities/dashboard.dart';
 import '../providers/dashboard_providers.dart';
 
@@ -16,6 +19,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final summary = ref.watch(dashboardSummaryProvider);
+    final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -37,7 +41,10 @@ class DashboardScreen extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 32),
               children: [
-                _DashboardHeader(summary: data),
+                _DashboardHeader(
+                  summary: data,
+                  avatarUrl: profileAsync.value?.avatar,
+                ),
                 const SizedBox(height: 28),
                 _QuickActionsSection(actions: data.quickActions),
                 const SizedBox(height: 28),
@@ -58,9 +65,10 @@ class DashboardScreen extends ConsumerWidget {
 // ─── Header: greeting + date + avatar (Figma "dashboard-header" 118:1666) ──
 
 class _DashboardHeader extends StatelessWidget {
-  const _DashboardHeader({required this.summary});
+  const _DashboardHeader({required this.summary, this.avatarUrl});
 
   final DashboardSummary summary;
+  final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +104,7 @@ class _DashboardHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          const _HeaderAvatar(),
+          _HeaderAvatar(avatarUrl: avatarUrl),
         ],
       ),
     );
@@ -104,40 +112,42 @@ class _DashboardHeader extends StatelessWidget {
 }
 
 class _HeaderAvatar extends StatelessWidget {
-  const _HeaderAvatar();
+  const _HeaderAvatar({this.avatarUrl});
+
+  final String? avatarUrl;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 60,
-      height: 60,
-      child: Stack(
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              image: DecorationImage(
-                image: AssetImage('assets/images/avatar.png'),
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            bottom: 0,
-            child: Container(
-              width: 14,
-              height: 14,
+    return GestureDetector(
+      onTap: () => context.push('/profile-view'),
+      child: SizedBox(
+        width: 60,
+        height: 60,
+        child: Stack(
+          children: [
+            Container(
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                color: const Color(0xFF10B981),
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                image: avatarDecoration(avatarUrl),
               ),
             ),
-          ),
-        ],
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -181,10 +191,23 @@ class _QuickActionsSection extends StatelessWidget {
   }
 }
 
-class _QuickActionCard extends StatelessWidget {
+class _QuickActionCard extends StatefulWidget {
   const _QuickActionCard({required this.action});
 
   final QuickAction action;
+
+  @override
+  State<_QuickActionCard> createState() => _QuickActionCardState();
+}
+
+class _QuickActionCardState extends State<_QuickActionCard> {
+  /// Guards against a double-tap (or a tap landing while the previous push is
+  /// still animating) firing two concurrent route pushes. Two pushes racing
+  /// the `/check-in` transition were tripping the Navigator's transition
+  /// assertions (`AnimationController` status listeners + `_userGesturesInProgress`).
+  DateTime? _lastPushAt;
+
+  static const Duration _tapDebounce = Duration(milliseconds: 450);
 
   static const Map<QuickActionType, Color> _bg = {
     QuickActionType.myAttendance: Color(0xFFF5FFE6),
@@ -198,64 +221,84 @@ class _QuickActionCard extends StatelessWidget {
     QuickActionType.viewDatesheet: 'assets/images/viewdatesheet.png',
   };
 
+  /// Destination pushed when the card is tapped (Figma dashboard quick
+  /// actions flow).
+  static String _routeFor(QuickActionType type) => switch (type) {
+    QuickActionType.myAttendance => '/check-in',
+    QuickActionType.applyLeave => '/leave/create',
+    QuickActionType.viewDatesheet => '/datesheet',
+  };
+
+  void _handleTap() {
+    final now = DateTime.now();
+    if (_lastPushAt != null && now.difference(_lastPushAt!) < _tapDebounce) {
+      return;
+    }
+    _lastPushAt = now;
+    context.push(_routeFor(widget.action.type));
+  }
+
   @override
   Widget build(BuildContext context) {
-    final background = _bg[action.type] ?? const Color(0xFFF5FFE6);
+    final background = _bg[widget.action.type] ?? const Color(0xFFF5FFE6);
     final iconColor = background == const Color(0xFFF5FFE6)
         ? const Color(0xFF93BA59)
         : background == const Color(0xFFE3F7FE)
         ? const Color(0xFF53AAC9)
         : const Color(0xFFC37BB0);
 
-    return Container(
-      height: 106,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(
-                        _iconAssets[action.type] ??
-                            'assets/images/myattendance.png',
+    return GestureDetector(
+      onTap: _handleTap,
+      child: Container(
+        height: 106,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage(
+                          _iconAssets[widget.action.type] ??
+                              'assets/images/myattendance.png',
+                        ),
+                        fit: BoxFit.contain,
                       ),
-                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Icon(Icons.arrow_outward, size: 16, color: iconColor),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    widget.action.title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFF161616),
+                      height: 1.2,
                     ),
                   ),
                 ),
-                Icon(Icons.arrow_outward, size: 16, color: iconColor),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Expanded(
-              child: Center(
-                child: Text(
-                  action.title,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: const Color(0xFF161616),
-                    height: 1.2,
-                  ),
-                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -300,8 +343,57 @@ class _TimetableSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          for (var i = 0; i < periods.length; i++)
-            _TimetableRow(period: periods[i], isLast: i == periods.length - 1),
+          if (periods.isEmpty)
+            _EmptySectionCard(
+              icon: Icons.schedule_rounded,
+              message: 'No classes scheduled today.',
+            )
+          else
+            for (var i = 0; i < periods.length; i++)
+              _TimetableRow(
+                period: periods[i],
+                isLast: i == periods.length - 1,
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Subtle empty placeholder used inside dashboard sections so the layout stays
+/// consistent (white card, `#E8ECF0` border, radius 14) when the backend has
+/// no rows for today.
+class _EmptySectionCard extends StatelessWidget {
+  const _EmptySectionCard({required this.icon, required this.message});
+
+  final IconData icon;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 98,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECF0)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 22, color: const Color(0xFF94A3B8)),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFF94A3B8),
+              height: 1.4,
+            ),
+          ),
         ],
       ),
     );
@@ -496,27 +588,43 @@ class _ClassAttendanceSection extends StatelessWidget {
                   height: 1.5,
                 ),
               ),
-              Text(
-                'View All',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF2249DC),
-                  height: 1.5,
+              InkWell(
+                onTap: () => context.push('/class'),
+                borderRadius: BorderRadius.circular(6),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 2,
+                  ),
+                  child: Text(
+                    'View All',
+                    style: GoogleFonts.inter(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF2249DC),
+                      height: 1.5,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < statuses.length; i++) ...[
-                if (i > 0) const SizedBox(width: 8),
-                Expanded(child: _ClassStatusCard(status: statuses[i])),
+          if (statuses.isEmpty)
+            const _EmptySectionCard(
+              icon: Icons.assignment_outlined,
+              message: 'No classes assigned yet.',
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < statuses.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(child: _ClassStatusCard(status: statuses[i])),
+                ],
               ],
-            ],
-          ),
+            ),
         ],
       ),
     );
@@ -659,14 +767,20 @@ class _UpcomingSection extends StatelessWidget {
             ),
             child: Column(
               children: [
-                for (var i = 0; i < events.length; i++) ...[
-                  _UpcomingRow(event: events[i]),
-                  if (i < events.length - 1) ...[
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFE8ECF0)),
-                    const SizedBox(height: 12),
+                if (events.isEmpty)
+                  const _EmptySectionCard(
+                    icon: Icons.event_outlined,
+                    message: 'No upcoming events.',
+                  )
+                else
+                  for (var i = 0; i < events.length; i++) ...[
+                    _UpcomingRow(event: events[i]),
+                    if (i < events.length - 1) ...[
+                      const SizedBox(height: 12),
+                      const Divider(height: 1, color: Color(0xFFE8ECF0)),
+                      const SizedBox(height: 12),
+                    ],
                   ],
-                ],
               ],
             ),
           ),

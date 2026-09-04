@@ -1,0 +1,359 @@
+{
+  "info": {
+    "_postman_id": "9f32e01b-c741-4cb5-8120-1e582d921340",
+    "name": "SMS Teacher Portal APIs",
+    "description": "Complete Postman Collection for the SMS Teacher Portal APIs including Authentication, Dashboard, Classes, Class Attendance, Leaves, and Profile/Password management.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Teacher Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.token) {",
+                  "        pm.collectionVariables.set(\"token\", jsonData.data.token);",
+                  "        console.log(\"Saved JWT token to collection variable\");",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sara.khan@school.edu\",\n  \"password\": \"teacher123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "login"]
+            },
+            "description": "Authenticates teacher credentials and saves the JWT token into the collection variable {{token}} automatically."
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "logout"]
+            },
+            "description": "Logs out the authenticated teacher."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. Dashboard",
+      "item": [
+        {
+          "name": "Get Teacher Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "dashboard"]
+            },
+            "description": "Returns today's timetable list, class-wise attendance summary with marked percentage, and upcoming schedule."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Classes",
+      "item": [
+        {
+          "name": "Get Assigned Classes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "classes"]
+            },
+            "description": "Returns all classes and sections assigned to this teacher with active student counts and subject credit hours."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Class Attendance",
+      "item": [
+        {
+          "name": "Get Students to Mark Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/attendance/students?classId=B1-C1&sectionId=B1-C1-S1&date=2026-08-26",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "attendance", "students"],
+              "query": [
+                {
+                  "key": "classId",
+                  "value": "B1-C1",
+                  "description": "Required class ID"
+                },
+                {
+                  "key": "sectionId",
+                  "value": "B1-C1-S1",
+                  "description": "Optional section ID"
+                },
+                {
+                  "key": "date",
+                  "value": "2026-08-26",
+                  "description": "Date format YYYY-MM-DD (defaults to today)"
+                }
+              ]
+            },
+            "description": "Returns student list with roll numbers, names, existing status (Present/Absent/Late/Leave), and attendance summary."
+          },
+          "response": []
+        },
+        {
+          "name": "Save / Mark Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"classId\": \"B1-C1\",\n  \"sectionId\": \"B1-C1-S1\",\n  \"date\": \"2026-08-26\",\n  \"records\": [\n    {\n      \"studentId\": \"B1-S1001\",\n      \"status\": \"Present\",\n      \"remark\": \"\"\n    },\n    {\n      \"studentId\": \"B1-S1002\",\n      \"status\": \"Absent\",\n      \"remark\": \"Sick leave\"\n    },\n    {\n      \"studentId\": \"B1-S1003\",\n      \"status\": \"Late\",\n      \"remark\": \"Arrived 15 mins late\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/attendance/mark",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "attendance", "mark"]
+            },
+            "description": "Transactionally saves and marks attendance for students in a class."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Leaves",
+      "item": [
+        {
+          "name": "Get Teacher Leaves (with Filters)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/leaves?status=all&from=2026-01-01&to=2026-12-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "leaves"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "all",
+                  "description": "Filter by status: all | Pending | Approved | Cancelled"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-01-01",
+                  "description": "From date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-12-31",
+                  "description": "To date (YYYY-MM-DD)"
+                },
+                {
+                  "key": "type",
+                  "value": "Sick",
+                  "disabled": true,
+                  "description": "Filter by type: Sick | Casual | Annual | Emergency"
+                }
+              ]
+            },
+            "description": "Returns leave applications submitted by the teacher with summary counters."
+          },
+          "response": []
+        },
+        {
+          "name": "Apply for Leave",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Sick\",\n  \"from\": \"2026-09-05\",\n  \"to\": \"2026-09-06\",\n  \"days\": 2,\n  \"reason\": \"Doctor appointment and recovery\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/leaves",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "leaves"]
+            },
+            "description": "Submits a new leave application with Pending status."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. Profile & Security",
+      "item": [
+        {
+          "name": "Get Teacher Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "profile"]
+            },
+            "description": "Returns teacher details, assigned classes count, and salary structure."
+          },
+          "response": []
+        },
+        {
+          "name": "Edit Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"+92-300-9876543\",\n  \"qualification\": \"M.Sc Mathematics, M.Ed\",\n  \"gender\": \"Female\",\n  \"avatar\": \"https://ui-avatars.com/api/?name=Sara+Khan&background=random\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "profile"]
+            },
+            "description": "Updates teacher contact info, qualification, gender, or avatar."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Teacher Attendance History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/profile/attendance?month=8&year=2026",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "profile", "attendance"],
+              "query": [
+                {
+                  "key": "month",
+                  "value": "8",
+                  "description": "Month number (1-12)"
+                },
+                {
+                  "key": "year",
+                  "value": "2026",
+                  "description": "Year (e.g. 2026)"
+                },
+                {
+                  "key": "from",
+                  "value": "2026-08-01",
+                  "disabled": true,
+                  "description": "Optional from date"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-08-31",
+                  "disabled": true,
+                  "description": "Optional to date"
+                }
+              ]
+            },
+            "description": "Returns the teacher's own check-in/out logs and monthly summary statistics."
+          },
+          "response": []
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"teacher123\",\n  \"newPassword\": \"newSecretPassword456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teacher-portal/profile/change-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["teacher-portal", "profile", "change-password"]
+            },
+            "description": "Verifies current password and updates with a new hashed password."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

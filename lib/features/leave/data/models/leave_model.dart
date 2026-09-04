@@ -13,17 +13,24 @@ class LeaveModel extends LeaveRequest {
     super.attachments,
   });
 
+  /// Parses a leave record from the portal. Accepts the documented keys
+  /// (`type`, `from`, `to`, `days`, `reason`, `status`, `appliedOn`) plus the
+  /// older `start_date` / `end_date` aliases used by the local mock.
   factory LeaveModel.fromJson(Map<String, dynamic> json) {
+    final start = DateTime.tryParse(
+          json['from']?.toString() ?? json['start_date']?.toString() ?? '',
+        ) ??
+        DateTime.now();
+    final end = DateTime.tryParse(
+          json['to']?.toString() ?? json['end_date']?.toString() ?? '',
+        ) ??
+        DateTime.now();
     return LeaveModel(
       id: json['id']?.toString() ?? '',
       type: _typeFromJson(json['type']?.toString()),
-      mode: json['mode']?.toString() == 'multiple'
-          ? LeaveMode.multiple
-          : LeaveMode.single,
-      startDate: DateTime.tryParse(json['start_date']?.toString() ?? '') ??
-          DateTime.now(),
-      endDate:
-          DateTime.tryParse(json['end_date']?.toString() ?? '') ?? DateTime.now(),
+      mode: start == end ? LeaveMode.single : LeaveMode.multiple,
+      startDate: start,
+      endDate: end,
       reason: json['reason']?.toString() ?? '',
       status: _statusFromJson(json['status']?.toString()),
       attachments: (json['attachments'] as List? ?? const <dynamic>[])
@@ -60,20 +67,22 @@ class LeaveModel extends LeaveRequest {
 }
 
 LeaveType _typeFromJson(String? value) {
-  return switch (value) {
+  return switch (value?.toLowerCase()) {
     'casual' => LeaveType.casual,
     'annual' => LeaveType.annual,
     'family' => LeaveType.family,
     'other' => LeaveType.other,
+    'sick' => LeaveType.sick,
     _ => LeaveType.sick,
   };
 }
 
 LeaveStatus _statusFromJson(String? value) {
-  return switch (value) {
+  return switch (value?.toLowerCase()) {
     'approved' => LeaveStatus.approved,
     'rejected' => LeaveStatus.rejected,
     'cancelled' => LeaveStatus.cancelled,
+    'pending' => LeaveStatus.pending,
     _ => LeaveStatus.pending,
   };
 }

@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -24,15 +25,23 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
-  dio.interceptors.add(
-    PrettyDioLogger(
-      requestHeader: true,
-      requestBody: true,
-      responseHeader: true,
-      responseBody: true,
-      compact: false,
-    ),
-  );
+  // Logging is enabled ONLY in debug builds, and even there it prints just a
+  // compact one-line summary (method + URI + status) per request. Pretty-printing
+  // full request/response bodies on the UI isolate was blocking the main thread
+  // for hundreds of milliseconds (>44 skipped frames, i.e. the visible "hang").
+  // In profile/release builds this block is compiled out entirely.
+  if (kDebugMode) {
+    dio.interceptors.add(
+      PrettyDioLogger(
+        compact: true,
+        maxWidth: 120,
+        requestHeader: false,
+        requestBody: false,
+        responseHeader: false,
+        responseBody: false,
+      ),
+    );
+  }
 
   return dio;
 });

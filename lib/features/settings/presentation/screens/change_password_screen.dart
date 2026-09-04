@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../providers/settings_providers.dart';
 
-/// Change Password screen reached from Settings (Figma settings row).
-class ChangePasswordScreen extends StatefulWidget {
+/// Change Password screen reached from Settings (Figma settings row). Submits
+/// the current + new password to `PUT /profile/change-password`.
+class ChangePasswordScreen extends ConsumerStatefulWidget {
   const ChangePasswordScreen({super.key});
 
   @override
-  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
+  ConsumerState<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
+class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _currentController = TextEditingController();
   final _newController = TextEditingController();
@@ -30,14 +33,31 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_newController.text != _confirmController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match.')),
+      );
+      return;
+    }
     setState(() => _saving = true);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final controller = ref.read(changePasswordControllerProvider.notifier);
+    final ok = await controller.change(
+      currentPassword: _currentController.text,
+      newPassword: _newController.text,
+    );
     if (!mounted) return;
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Password updated successfully.')),
-    );
-    context.pop();
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password updated successfully.')),
+      );
+      context.pop();
+    } else {
+      final error = controller.errorOrNull;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error?.message ?? 'Unable to change password.')),
+      );
+    }
   }
 
   @override

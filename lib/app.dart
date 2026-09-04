@@ -6,15 +6,13 @@ import 'core/widgets/main_navigation_shell.dart';
 import 'features/auth/presentation/screens/auth_gate_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/attendance/presentation/screens/attendance_details_screen.dart';
+import 'features/attendance/presentation/screens/check_in_screen.dart';
 import 'features/attendance/presentation/screens/class_screen.dart';
 import 'features/attendance/presentation/screens/mark_attendance_screen.dart';
 import 'features/attendance/presentation/screens/teacher_attendance_screen.dart';
 import 'features/dashboard/presentation/screens/dashboard_screen.dart';
+import 'features/exams/presentation/screens/datesheet_screen.dart';
 import 'features/exams/presentation/screens/exams_screen.dart';
-import 'features/features/domain/entities/feature.dart';
-import 'features/features/presentation/screens/create_feature_screen.dart';
-import 'features/features/presentation/screens/feature_detail_screen.dart';
-import 'features/features/presentation/screens/feature_screen.dart';
 import 'features/leave/presentation/screens/create_leave_screen.dart';
 import 'features/leave/presentation/screens/leave_screen.dart';
 import 'features/profile/presentation/screens/profile_view_screen.dart';
@@ -101,6 +99,14 @@ class App extends StatelessWidget {
         builder: (context, state) => const ProfileViewScreen(),
       ),
       GoRoute(
+        path: '/check-in',
+        builder: (context, state) => const CheckInScreen(),
+      ),
+      GoRoute(
+        path: '/datesheet',
+        builder: (context, state) => const DatesheetScreen(),
+      ),
+      GoRoute(
         path: '/settings',
         builder: (context, state) => const SettingsScreen(),
       ),
@@ -119,24 +125,6 @@ class App extends StatelessWidget {
       GoRoute(
         path: '/settings/about',
         builder: (context, state) => const AboutAppScreen(),
-      ),
-      GoRoute(
-        path: '/features',
-        builder: (context, state) => const FeatureScreen(),
-      ),
-      GoRoute(
-        path: '/features/create',
-        builder: (context, state) => const CreateFeatureScreen(),
-      ),
-      GoRoute(
-        path: '/features/detail',
-        builder: (context, state) {
-          final feature = state.extra is Feature
-              ? state.extra! as Feature
-              : null;
-          if (feature == null) return const FeatureScreen();
-          return FeatureDetailScreen(feature: feature);
-        },
       ),
     ],
   );

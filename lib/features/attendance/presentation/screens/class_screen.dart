@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/error/failures.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/avatar_resolver.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../domain/entities/class_attendance.dart';
 import '../providers/class_attendance_providers.dart';
 
@@ -18,6 +21,11 @@ class ClassScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final classes = ref.watch(teacherClassesProvider);
+    final profileAsync = ref.watch(profileProvider);
+    final session = ref.watch(authSessionProvider);
+    final teacherName = session?.employeeName.isNotEmpty == true
+        ? session!.employeeName
+        : 'Teacher';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
@@ -40,7 +48,10 @@ class ClassScreen extends ConsumerWidget {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                 children: [
-                  const _MyClassesHeader(),
+                  _MyClassesHeader(
+                    teacherName: teacherName,
+                    avatarUrl: profileAsync.value?.avatar,
+                  ),
                   const SizedBox(height: 24),
                   const _SectionHeader(title: 'My Classes'),
                   const SizedBox(height: 16),
@@ -59,9 +70,12 @@ class ClassScreen extends ConsumerWidget {
 }
 
 /// Greeting header matching the Figma dashboard header (frame 75:8903):
-/// "Hy, Ms. Sharma" + date on the left, avatar with a green active dot.
+/// "Hy, [name]" + date on the left, avatar with a green active dot.
 class _MyClassesHeader extends StatelessWidget {
-  const _MyClassesHeader();
+  const _MyClassesHeader({required this.teacherName, this.avatarUrl});
+
+  final String teacherName;
+  final String? avatarUrl;
 
   static String _todayLabel() {
     const weekdays = [
@@ -101,7 +115,7 @@ class _MyClassesHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Hy, Ms. Sharma',
+              'Hy, $teacherName',
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
@@ -119,36 +133,36 @@ class _MyClassesHeader extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(
-          width: 60,
-          height: 60,
-          child: Stack(
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: AssetImage('assets/images/avatar.png'),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: Container(
-                  width: 14,
-                  height: 14,
+        GestureDetector(
+          onTap: () => context.push('/profile-view'),
+          child: SizedBox(
+            width: 60,
+            height: 60,
+            child: Stack(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2),
+                    image: avatarDecoration(avatarUrl),
                   ),
                 ),
-              ),
-            ],
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -181,20 +195,28 @@ class _SectionHeader extends StatelessWidget {
 /// is the green "Mark" (`#DCFCE7` / `#15803D`); once saved it becomes the
 /// purple "View" pill (`#EBE8F7` / `#563CE0`) and opens the Attendance Details
 /// screen for that class.
-class _ClassCard extends StatelessWidget {
+class _ClassCard extends ConsumerWidget {
   const _ClassCard({required this.cls});
 
   final TeacherClass cls;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // A class counts as already marked when the server says so, or when its
+    // attendance was submitted during this session (the dashboard aggregation
+    // can lag behind a successful POST). This keeps the card on the purple
+    // "View" pill / Attendance Details route right after marking.
+    final submittedToday = ref.watch(submittedClassIdsProvider);
+    final submitted =
+        cls.attendanceSubmitted || submittedToday.contains(cls.id);
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => context.push(
-          cls.attendanceSubmitted
+          submitted
               ? '/class/details/${cls.id}'
               : '/class/attendance/${cls.id}',
           extra: cls,
@@ -233,7 +255,7 @@ class _ClassCard extends StatelessWidget {
                   ),
                 ],
               ),
-              if (cls.attendanceSubmitted) _ViewPill() else _MarkPill(),
+              if (submitted) _ViewPill() else _MarkPill(),
             ],
           ),
         ),

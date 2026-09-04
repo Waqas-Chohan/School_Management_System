@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/avatar_resolver.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../providers/settings_providers.dart';
 
@@ -18,8 +19,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _pushEnabled = true;
-
   Future<void> _handleLogout() async {
     // Figma "Logout" sheet (65:5921): dim overlay + white top-rounded sheet.
     await showModalBottomSheet<void>(
@@ -55,6 +54,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(profileProvider);
+    final profile = profileAsync.value;
+    final pushEnabled = profile?.pushNotificationsEnabled ?? true;
+    final notifSaving =
+        ref.watch(notificationsControllerProvider.select(
+          (s) => s is AsyncLoading,
+        ));
     // When this screen is the Profile tab root, there is no back stack.
     final isTabRoot = GoRouterState.of(context).uri.path == '/profile';
 
@@ -92,6 +97,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       data: (profile) => _UserProfileCard(
                         name: profile.fullName,
                         subtitle: 'ID: ${profile.id}  •  ${profile.role}',
+                        avatarUrl: profile.avatar,
                         onTap: () => context.push('/profile-view'),
                       ),
                       orElse: () => const _UserProfileCard(
@@ -124,8 +130,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     _sectionLabel('Notifications'),
                     _NotificationRow(
-                      enabled: _pushEnabled,
-                      onChanged: (v) => setState(() => _pushEnabled = v),
+                      enabled: pushEnabled,
+                      busy: notifSaving,
+                      onChanged: (v) async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final ok = await ref
+                            .read(notificationsControllerProvider.notifier)
+                            .setEnabled(v);
+                        if (!mounted) return;
+                        if (!ok) {
+                          final error = ref
+                              .read(notificationsControllerProvider.notifier)
+                              .errorOrNull;
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                error?.message ?? 'Unable to update notifications.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
                     ),
                     _sectionLabel('Legal'),
                     _SettingsRow(
@@ -182,11 +207,17 @@ class _UserProfileCard extends StatelessWidget {
     required this.name,
     required this.subtitle,
     this.onTap,
+    this.avatarUrl,
   });
 
   final String name;
   final String subtitle;
   final VoidCallback? onTap;
+  final String? avatarUrl;
+
+  /// Resolves the avatar: uses the real URL/path when present, else the bundled
+  /// fallback asset.
+  DecorationImage _avatarImage() => avatarDecoration(avatarUrl);
 
   @override
   Widget build(BuildContext context) {
@@ -211,10 +242,7 @@ class _UserProfileCard extends StatelessWidget {
                     height: 52,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      image: const DecorationImage(
-                        image: AssetImage('assets/images/avatar.png'),
-                        fit: BoxFit.cover,
-                      ),
+                      image: _avatarImage(),
                     ),
                   ),
                   Positioned(
@@ -338,9 +366,14 @@ class _SettingsRow extends StatelessWidget {
 // ─── Push Notifications row with toggle (Figma 65:5629) ────────────────────
 
 class _NotificationRow extends StatelessWidget {
-  const _NotificationRow({required this.enabled, required this.onChanged});
+  const _NotificationRow({
+    required this.enabled,
+    required this.onChanged,
+    this.busy = false,
+  });
 
   final bool enabled;
+  final bool busy;
   final ValueChanged<bool> onChanged;
 
   @override
@@ -380,7 +413,14 @@ class _NotificationRow extends StatelessWidget {
               ),
             ),
           ),
-          _PushToggle(enabled: enabled, onChanged: onChanged),
+          if (busy)
+              const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              _PushToggle(enabled: enabled, onChanged: onChanged),
         ],
       ),
     );

@@ -23,9 +23,13 @@ final leaveRemoteDataSourceProvider = Provider<LeaveDataSource>((ref) {
   return LeaveRemoteDataSourceImpl(dio: ref.watch(dioProvider));
 });
 
-// Swap to `ref.watch(leaveRemoteDataSourceProvider)` when the API is ready.
+// Remote-first provider: the repository falls back to the mock source only
+// when the live API is unreachable.
 final leaveRepositoryProvider = Provider<LeaveRepository>((ref) {
-  return LeaveRepositoryImpl(ref.watch(leaveMockDataSourceProvider));
+  return LeaveRepositoryImpl(
+    ref.watch(leaveMockDataSourceProvider),
+    ref.watch(leaveRemoteDataSourceProvider),
+  );
 });
 
 // ── Use case providers ───────────────────────────────

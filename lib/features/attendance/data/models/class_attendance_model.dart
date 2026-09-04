@@ -8,26 +8,37 @@ class TeacherClassModel extends TeacherClass {
     required super.grade,
     required super.studentCount,
     super.attendanceSubmitted = false,
+    super.classId = '',
+    super.sectionId = '',
   });
 
+  /// Maps a `/teacher-portal/classes` entry. The assignment `id` doubles as
+  /// the class key used across the app; `classId` + `sectionId` are kept for
+  /// the roster / mark endpoints.
   factory TeacherClassModel.fromJson(Map<String, dynamic> json) {
+    final level = json['level']?.toString() ?? '';
+    final section = json['sectionName']?.toString() ?? '';
+    final subject = json['subjectName']?.toString() ?? '';
+    final gradeParts = [section, subject].where((p) => p.isNotEmpty).join(' • ');
     return TeacherClassModel(
       id: json['id']?.toString() ?? '',
-      name: json['name']?.toString() ?? '',
-      grade: json['grade']?.toString() ?? '',
-      studentCount: int.tryParse(json['student_count']?.toString() ?? '0') ?? 0,
-      attendanceSubmitted:
-          json['attendance_submitted'] == true ||
-          json['attendance_submitted']?.toString() == 'true',
+      classId: json['classId']?.toString() ?? '',
+      sectionId: json['sectionId']?.toString() ?? '',
+      name: json['className']?.toString() ?? '',
+      grade: gradeParts.isEmpty ? 'Level $level' : gradeParts,
+      studentCount: int.tryParse(json['studentCount']?.toString() ?? '0') ?? 0,
+      attendanceSubmitted: json['isMarkedToday'] == true,
     );
   }
 
   Map<String, dynamic> toJson() => {
     'id': id,
-    'name': name,
+    'classId': classId,
+    'sectionId': sectionId,
+    'className': name,
     'grade': grade,
-    'student_count': studentCount,
-    'attendance_submitted': attendanceSubmitted,
+    'studentCount': studentCount,
+    'attendanceSubmitted': attendanceSubmitted,
   };
 }
 
@@ -37,17 +48,29 @@ class StudentModel extends Student {
     required super.id,
     required super.name,
     required super.rollNo,
+    this.status = StudentAttendanceStatus.present,
   });
 
+  /// The student's existing / default attendance status from the roster.
+  final StudentAttendanceStatus status;
+
+  /// Maps a `/attendance/students` entry. `rollNo` is stored as a display
+  /// label ("Roll No. 32") matching the existing roster UI.
   factory StudentModel.fromJson(Map<String, dynamic> json) {
+    final roll = json['rollNo']?.toString() ?? '';
     return StudentModel(
-      id: json['id']?.toString() ?? '',
+      id: json['studentId']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
-      rollNo: json['roll_no']?.toString() ?? '',
+      rollNo: roll.isEmpty ? '' : 'Roll No. $roll',
+      status: _statusFromServer(json['status']?.toString()),
     );
   }
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'roll_no': rollNo};
+  Map<String, dynamic> toJson() => {
+    'studentId': id,
+    'rollNo': rollNo,
+    'name': name,
+  };
 }
 
 /// Serializable model for [ClassAttendance].
@@ -58,23 +81,37 @@ class ClassAttendanceModel extends ClassAttendance {
     super.savedStatuses = const {},
   });
 
+  /// Parses the `/attendance/students` payload:
+  /// `{ summary: { isMarked, ... }, students: [...] }`. When the sheet has
+  /// already been submitted the roster statuses become the saved statuses.
   factory ClassAttendanceModel.fromJson(Map<String, dynamic> json) {
-    final rawStatuses =
-        json['saved_statuses'] as Map? ?? const <String, dynamic>{};
-    final savedStatuses = rawStatuses.map((key, value) {
-      final status = StudentAttendanceStatus.values.firstWhere(
-        (s) => s.name == value?.toString(),
-        orElse: () => StudentAttendanceStatus.present,
-      );
-      return MapEntry(key.toString(), status);
-    });
+    final summary =
+        (json['summary'] as Map? ?? const <String, dynamic>{})
+            .cast<String, dynamic>();
+    final isMarked = summary['isMarked'] == true;
+    final students = (json['students'] as List? ?? const <dynamic>[])
+        .map((e) => StudentModel.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+
+    final savedStatuses = <String, StudentAttendanceStatus>{};
+    if (isMarked) {
+      for (final student in students.cast<StudentModel>()) {
+        savedStatuses[student.id] = student.status;
+      }
+    }
+
     return ClassAttendanceModel(
-      teacherClass: (json['teacher_class'] as Map? ?? const <String, dynamic>{})
-          .cast<String, dynamic>()
-          .let((m) => TeacherClassModel.fromJson(m)),
-      students: (json['students'] as List? ?? const <dynamic>[])
-          .map((e) => StudentModel.fromJson((e as Map).cast<String, dynamic>()))
-          .toList(),
+      teacherClass: TeacherClass(
+        id: '',
+        name: summary['className']?.toString() ??
+            summary['class_name']?.toString() ??
+            '',
+        grade: summary['sectionName']?.toString() ??
+            summary['section_name']?.toString() ??
+            '',
+        studentCount: students.length,
+      ),
+      students: students,
       savedStatuses: savedStatuses,
     );
   }
@@ -97,6 +134,33 @@ class AttendanceSubmissionResultModel extends AttendanceSubmissionResult {
     required super.late,
   });
 
+  /// Counts the saved records returned by `/attendance/mark`:
+  /// `data: [{ status: "Present" | "Absent" | "Leave" | "Late", ... }]`.
+  factory AttendanceSubmissionResultModel.fromSavedRecords(
+    List<dynamic> records,
+  ) {
+    var present = 0, absent = 0, leave = 0, late = 0;
+    for (final record in records) {
+      final map = (record as Map).cast<String, dynamic>();
+      switch (_statusFromServer(map['status']?.toString())) {
+        case StudentAttendanceStatus.present:
+          present++;
+        case StudentAttendanceStatus.absent:
+          absent++;
+        case StudentAttendanceStatus.leave:
+          leave++;
+        case StudentAttendanceStatus.late:
+          late++;
+      }
+    }
+    return AttendanceSubmissionResultModel(
+      present: present,
+      absent: absent,
+      leave: leave,
+      late: late,
+    );
+  }
+
   factory AttendanceSubmissionResultModel.fromJson(Map<String, dynamic> json) {
     return AttendanceSubmissionResultModel(
       present: int.tryParse(json['present']?.toString() ?? '0') ?? 0,
@@ -107,6 +171,12 @@ class AttendanceSubmissionResultModel extends AttendanceSubmissionResult {
   }
 }
 
-extension<T> on T {
-  R let<R>(R Function(T) block) => block(this);
+// Maps the server's capitalised status strings to the entity enum.
+StudentAttendanceStatus _statusFromServer(String? value) {
+  return switch (value?.toLowerCase()) {
+    'absent' => StudentAttendanceStatus.absent,
+    'leave' => StudentAttendanceStatus.leave,
+    'late' => StudentAttendanceStatus.late,
+    _ => StudentAttendanceStatus.present,
+  };
 }

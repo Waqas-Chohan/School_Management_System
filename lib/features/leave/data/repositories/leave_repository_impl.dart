@@ -4,12 +4,13 @@ import '../../domain/entities/leave.dart';
 import '../../domain/repositories/leave_repository.dart';
 import '../datasources/leave_data_source.dart';
 
-/// Implements [LeaveRepository] using the configured data source.
-/// Swap between mock and remote by changing the provider (master prompt §10).
+/// Implements [LeaveRepository] over the live portal API with a graceful
+/// fallback to the mock source when the network is unreachable.
 class LeaveRepositoryImpl implements LeaveRepository {
-  const LeaveRepositoryImpl(this._dataSource);
+  const LeaveRepositoryImpl(this._mockDataSource, this._remoteDataSource);
 
-  final LeaveDataSource _dataSource;
+  final LeaveDataSource _mockDataSource;
+  final LeaveDataSource _remoteDataSource;
 
   @override
   Future<Result<List<LeaveRequest>>> fetchLeaves({
@@ -19,7 +20,12 @@ class LeaveRepositoryImpl implements LeaveRepository {
     if (accessToken.isEmpty) {
       return const Failure(UnauthorizedFailure('Please login to view leaves.'));
     }
-    return _dataSource.fetchLeaves(accessToken, filter: filter);
+    final remote = await _remoteDataSource.fetchLeaves(accessToken, filter: filter);
+    if (remote is Success<List<LeaveRequest>>) return remote;
+    if (remote is Failure<List<LeaveRequest>> && remote.failure is NetworkFailure) {
+      return _mockDataSource.fetchLeaves(accessToken, filter: filter);
+    }
+    return remote;
   }
 
   @override
@@ -30,7 +36,7 @@ class LeaveRepositoryImpl implements LeaveRepository {
     if (accessToken.isEmpty) {
       return const Failure(UnauthorizedFailure('Please login to apply for leave.'));
     }
-    return _dataSource.createLeave(
+    final remote = await _remoteDataSource.createLeave(
       accessToken,
       LeaveDraft(
         type: input.type,
@@ -41,5 +47,20 @@ class LeaveRepositoryImpl implements LeaveRepository {
         attachments: input.attachments,
       ),
     );
+    if (remote is Success<void>) return remote;
+    if (remote is Failure<void> && remote.failure is NetworkFailure) {
+      return _mockDataSource.createLeave(
+        accessToken,
+        LeaveDraft(
+          type: input.type,
+          mode: input.mode,
+          startDate: input.startDate,
+          endDate: input.endDate,
+          reason: input.reason,
+          attachments: input.attachments,
+        ),
+      );
+    }
+    return remote;
   }
 }

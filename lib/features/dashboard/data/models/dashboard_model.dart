@@ -1,6 +1,13 @@
+import 'package:intl/intl.dart';
+
 import '../../domain/entities/dashboard.dart';
 
 /// Serializable DTO for [DashboardSummary].
+///
+/// Maps the SMS portal dashboard payload:
+/// `{ teacher, stats, todays_timetable, class_attendance_records,
+///    upcoming_schedule }` onto the existing display-oriented entity. Quick
+/// actions are app-level shortcuts, so they are always rebuilt locally.
 class DashboardSummaryModel extends DashboardSummary {
   const DashboardSummaryModel({
     required super.greeting,
@@ -12,23 +19,90 @@ class DashboardSummaryModel extends DashboardSummary {
   });
 
   factory DashboardSummaryModel.fromJson(Map<String, dynamic> json) {
+    final teacher =
+        (json['teacher'] as Map? ?? const <String, dynamic>{})
+            .cast<String, dynamic>();
+    final name = teacher['name']?.toString().trim() ?? '';
+    final firstName = name.isEmpty ? 'Teacher' : name.split(' ').first;
+    final now = DateTime.now();
+
+    final rawTimetable =
+        (json['todaysTimetable'] ?? json['todays_timetable']) as List? ??
+        const <dynamic>[];
+    final rawClassRecords =
+        (json['classAttendanceRecords'] ?? json['class_attendance_records'])
+                as List? ??
+            const <dynamic>[];
+
     return DashboardSummaryModel(
-      greeting: json['greeting']?.toString() ?? '',
-      dateLabel: json['date_label']?.toString() ?? '',
-      quickActions: (json['quick_actions'] as List? ?? const <dynamic>[])
-          .map((e) => QuickActionModel.fromJson((e as Map).cast<String, dynamic>()))
+      greeting: 'Hy, $firstName',
+      dateLabel: DateFormat('EEEE, MMMM d, yyyy').format(now),
+      quickActions: _defaultQuickActions(),
+      timetable: rawTimetable
+          .map(
+            (e) => TimetablePeriodModel.fromJson(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList(),
-      timetable: (json['timetable'] as List? ?? const <dynamic>[])
-          .map((e) => TimetablePeriodModel.fromJson((e as Map).cast<String, dynamic>()))
+      classStatuses: rawClassRecords
+          .map(
+            (e) => ClassAttendanceStatusModel.fromJson(
+              (e as Map).cast<String, dynamic>(),
+            ),
+          )
           .toList(),
-      classStatuses: (json['class_statuses'] as List? ?? const <dynamic>[])
-          .map((e) =>
-              ClassAttendanceStatusModel.fromJson((e as Map).cast<String, dynamic>()))
-          .toList(),
-      upcoming: (json['upcoming'] as List? ?? const <dynamic>[])
-          .map((e) => UpcomingEventModel.fromJson((e as Map).cast<String, dynamic>()))
-          .toList(),
+      upcoming: _upcomingFrom(json['upcomingSchedule'] ?? json['upcoming_schedule']),
     );
+  }
+
+  /// The three dashboard quick-action shortcuts (app-level, always present).
+  static List<QuickAction> _defaultQuickActions() => const [
+    QuickAction(
+      id: '1',
+      title: 'My Attendance',
+      type: QuickActionType.myAttendance,
+    ),
+    QuickAction(
+      id: '2',
+      title: 'Apply For Leave',
+      type: QuickActionType.applyLeave,
+    ),
+    QuickAction(
+      id: '3',
+      title: 'View Datesheet',
+      type: QuickActionType.viewDatesheet,
+    ),
+  ];
+
+  /// Combines the optional `events` and `holidays` groups from
+  /// `upcoming_schedule` into the single [UpcomingEvent] list the UI renders.
+  static List<UpcomingEvent> _upcomingFrom(Object? raw) {
+    final schedule =
+        (raw as Map? ?? const <String, dynamic>{}).cast<String, dynamic>();
+    final events = (schedule['events'] as List? ?? const <dynamic>[])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .map(
+          (e) => UpcomingEvent(
+            title: e['title']?.toString() ?? e['name']?.toString() ?? '',
+            date: e['date']?.toString() ?? '',
+            kind: _upcomingKindFromJson(e['kind']?.toString(),
+                defaultKind: UpcomingEventKind.meeting),
+          ),
+        )
+        .toList();
+    final holidays = (schedule['holidays'] as List? ?? const <dynamic>[])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .map(
+          (e) => UpcomingEvent(
+            title: e['title']?.toString() ?? e['name']?.toString() ?? '',
+            date: e['date']?.toString() ?? '',
+            kind: _upcomingKindFromJson(e['kind']?.toString(),
+                defaultKind: UpcomingEventKind.holiday),
+          ),
+        )
+        .toList();
+    return [...events, ...holidays];
   }
 
   factory DashboardSummaryModel.fromEntity(DashboardSummary entity) {
@@ -94,15 +168,41 @@ class TimetablePeriodModel extends TimetablePeriod {
     required super.timeRange,
   });
 
+  /// Tolerant parser for the timetable entries. Accepts both the live portal's
+  /// camelCase keys (`subjectName`, `className`, `room`, `startTime`,
+  /// `endTime`) and the older snake_case aliases.
   factory TimetablePeriodModel.fromJson(Map<String, dynamic> json) {
+    final subject = json['subject']?.toString() ??
+        json['subjectName']?.toString() ??
+        json['subject_name']?.toString() ??
+        '';
+    final className = json['className']?.toString() ??
+        json['class_name']?.toString() ??
+        '';
+    final room = json['room']?.toString() ??
+        json['roomNo']?.toString() ??
+        json['room_no']?.toString() ??
+        '';
+    final start = json['startTime']?.toString() ??
+        json['start_time']?.toString() ??
+        json['start']?.toString() ??
+        '';
+    final end = json['endTime']?.toString() ??
+        json['end_time']?.toString() ??
+        json['end']?.toString() ??
+        '';
+    final timeRange = json['time_range']?.toString() ??
+        (start.isEmpty && end.isEmpty ? '' : '$start - $end');
+    final role = json['isClassTeacher'] == true ||
+        json['is_class_teacher'] == true
+        ? TimetableRole.classIncharge
+        : TimetableRole.subjectTeacher;
     return TimetablePeriodModel(
-      subject: json['subject']?.toString() ?? '',
-      role: json['role']?.toString() == 'class_incharge'
-          ? TimetableRole.classIncharge
-          : TimetableRole.subjectTeacher,
-      room: json['room']?.toString() ?? '',
-      className: json['class_name']?.toString() ?? '',
-      timeRange: json['time_range']?.toString() ?? '',
+      subject: subject,
+      role: role,
+      room: room,
+      className: className,
+      timeRange: timeRange,
     );
   }
 
@@ -134,15 +234,33 @@ class ClassAttendanceStatusModel extends ClassAttendanceStatus {
     super.status,
   });
 
+  /// Maps a `class_attendance_records` entry. The dashboard card shows the
+  /// class + section as its name and uses `marked_percentage` /
+  /// `is_marked_today` for the completion pill. The live portal returns
+  /// camelCase keys (`sectionName`, `subjectName`, `markedPercentage`,
+  /// `isMarkedToday`).
   factory ClassAttendanceStatusModel.fromJson(Map<String, dynamic> json) {
-    final status = json['status']?.toString() == 'marked'
-        ? AttendanceMarkStatus.marked
-        : AttendanceMarkStatus.notMarked;
+    final section = json['sectionName']?.toString() ??
+        json['section_name']?.toString() ??
+        '';
+    final className = '${json['className']?.toString() ?? ''}'
+        '${section.isEmpty ? '' : ' - $section'}';
+    final marked = json['isMarkedToday'] == true ||
+        json['is_marked_today'] == true;
+    final percent = int.tryParse(
+      json['markedPercentage']?.toString() ??
+          json['marked_percentage']?.toString() ??
+          '0',
+    ) ?? 0;
     return ClassAttendanceStatusModel(
-      className: json['class_name']?.toString() ?? '',
-      subject: json['subject']?.toString() ?? '',
-      percent: int.tryParse(json['percent']?.toString() ?? '0') ?? 0,
-      status: status,
+      className: className,
+      subject: json['subjectName']?.toString() ??
+          json['subject_name']?.toString() ??
+          '',
+      percent: percent,
+      status: marked
+          ? AttendanceMarkStatus.marked
+          : AttendanceMarkStatus.notMarked,
     );
   }
 
@@ -197,10 +315,14 @@ QuickActionType _quickActionTypeFromJson(String? value) {
   };
 }
 
-UpcomingEventKind _upcomingKindFromJson(String? value) {
+UpcomingEventKind _upcomingKindFromJson(
+  String? value, {
+  UpcomingEventKind defaultKind = UpcomingEventKind.holiday,
+}) {
   return switch (value) {
     'meeting' => UpcomingEventKind.meeting,
     'leave' => UpcomingEventKind.leave,
-    _ => UpcomingEventKind.holiday,
+    'holiday' => UpcomingEventKind.holiday,
+    _ => defaultKind,
   };
 }

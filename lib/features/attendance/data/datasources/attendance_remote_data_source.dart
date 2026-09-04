@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/api_response.dart';
@@ -7,7 +8,9 @@ import '../../domain/entities/attendance.dart';
 import '../models/attendance_model.dart';
 import 'attendance_data_source.dart';
 
-/// Remote attendance data source backed by [Dio].
+/// Remote attendance data source backed by [Dio]. Reads the teacher's own
+/// check-in / check-out history from the SMS portal:
+/// `GET /teacher-portal/profile/attendance?month=&year=`.
 class AttendanceRemoteDataSourceImpl implements AttendanceDataSource {
   AttendanceRemoteDataSourceImpl({required this.dio});
 
@@ -17,16 +20,21 @@ class AttendanceRemoteDataSourceImpl implements AttendanceDataSource {
   Future<Result<AttendanceSummary>> fetchSummary(
     String accessToken, {
     String? month,
-  }) {
+  }) async {
     return guardApi(() async {
+      final now = DateTime.now();
+      final selectedMonth = int.tryParse(month ?? '') ?? now.month;
+      final selectedYear = now.year;
       final response = await dio.get<Map<String, dynamic>>(
-        ApiEndpoints.myAttendance,
-        queryParameters: month == null ? null : {'month': month},
+        ApiEndpoints.profileAttendance,
+        queryParameters: {'month': selectedMonth, 'year': selectedYear},
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
-      final payload = (response.data ?? const <String, dynamic>{})
-          .cast<String, dynamic>();
-      return AttendanceSummaryModel.fromJson(payload);
+      final payload = envelopeMap(response.data);
+      return AttendanceSummaryModel.fromJson(
+        payload,
+        monthLabel: DateFormat('MMMM yyyy').format(now),
+      );
     });
   }
 }

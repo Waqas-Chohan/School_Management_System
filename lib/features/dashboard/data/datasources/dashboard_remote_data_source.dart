@@ -7,7 +7,8 @@ import '../../domain/entities/dashboard.dart';
 import '../models/dashboard_model.dart';
 import 'dashboard_data_source.dart';
 
-/// Remote data source backed by [Dio].
+/// Remote data source backed by [Dio]. Parses the SMS portal envelope and maps
+/// the live dashboard payload onto the existing [DashboardSummary] entity.
 class DashboardRemoteDataSourceImpl implements DashboardDataSource {
   DashboardRemoteDataSourceImpl({required this.dio});
 
@@ -20,7 +21,7 @@ class DashboardRemoteDataSourceImpl implements DashboardDataSource {
         ApiEndpoints.dashboardSummary,
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
-      final payload = (response.data ?? const <String, dynamic>{}).cast<String, dynamic>();
+      final payload = envelopeMap(response.data);
       return DashboardSummaryModel.fromJson(payload);
     });
   }

@@ -12,9 +12,19 @@ class TeacherClass {
     required this.grade,
     required this.studentCount,
     this.attendanceSubmitted = false,
+    this.classId = '',
+    this.sectionId = '',
   });
 
   final String id;
+
+  /// The portal's canonical class id (e.g. `B1-C12`) used by the
+  /// `/attendance/students` and `/attendance/mark` endpoints.
+  final String classId;
+
+  /// The portal's section id (e.g. `B1-C12-S1`) used alongside [classId].
+  final String sectionId;
+
   final String name; // e.g. "Class A"
   final String grade; // e.g. "Grade 5"
   final int studentCount;

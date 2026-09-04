@@ -19,10 +19,13 @@ final dashboardRemoteDataSourceProvider = Provider<DashboardDataSource>((ref) {
   return DashboardRemoteDataSourceImpl(dio: ref.watch(dioProvider));
 });
 
-// Swap to `ref.watch(dashboardRemoteDataSourceProvider)` when the real API is
-// ready. The rest of the feature stays unchanged (see master prompt §10).
+// Remote-first provider: the repository falls back to the mock source only
+// when the live API is unreachable.
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
-  return DashboardRepositoryImpl(ref.watch(dashboardMockDataSourceProvider));
+  return DashboardRepositoryImpl(
+    ref.watch(dashboardMockDataSourceProvider),
+    ref.watch(dashboardRemoteDataSourceProvider),
+  );
 });
 
 final getDashboardSummaryUseCaseProvider =

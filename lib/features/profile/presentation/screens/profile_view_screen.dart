@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/config/app_dimensions.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/widgets/avatar_resolver.dart';
 import '../providers/profile_providers.dart';
 
 /// Read-only profile view reached from the Settings dark profile card. It
@@ -60,26 +61,14 @@ class ProfileViewScreen extends ConsumerWidget {
                     Container(
                       width: 80,
                       height: 80,
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        image: DecorationImage(
-                          image: AssetImage('assets/images/avatar.png'),
-                          fit: BoxFit.cover,
-                        ),
+                        image: _avatarImage(data.avatar),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Profile is view-only. To edit, open Settings → Edit Profile.',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: const Color(0xFF737373),
-                      ),
-                    ),
+                    const SizedBox(height: 20),
                   ],
                 ),
-                const SizedBox(height: 20),
                 _pillLabel('Full Name'),
                 const SizedBox(height: 8),
                 _readonlyPill(data.fullName),
@@ -94,7 +83,9 @@ class ProfileViewScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _pillLabel('Date of Birth'),
                 const SizedBox(height: 8),
-                _readonlyPill(_dobLabel(data.dateJoined)),
+                _readonlyPill(
+                  data.dob != null ? _dobLabel(data.dob!) : _dobLabel(data.dateJoined),
+                ),
                 const SizedBox(height: 16),
                 _pillLabel('Gender'),
                 const SizedBox(height: 8),
@@ -106,6 +97,9 @@ class ProfileViewScreen extends ConsumerWidget {
       ),
     );
   }
+
+  /// Resolves the avatar for display (real URL/path or bundled fallback).
+  DecorationImage _avatarImage(String? raw) => avatarDecoration(raw);
 
   String _dobLabel(DateTime date) {
     const months = [
